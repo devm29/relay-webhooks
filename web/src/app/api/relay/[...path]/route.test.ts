@@ -61,4 +61,19 @@ describe("relay proxy", () => {
     expect(response.status).toBe(401)
     expect(response.headers.get("set-cookie")).toMatch(/relay_session=;/)
   })
+
+  it("refuses dot segments that would climb out of the API prefix", async () => {
+    const response = await call(GET, ["..", "healthz"])
+    expect(response.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("answers with the error envelope when the API cannot be reached", async () => {
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"))
+    const response = await call(GET, ["apps"])
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      error: { code: "api_unreachable", message: expect.stringContaining("not reachable") },
+    })
+  })
 })

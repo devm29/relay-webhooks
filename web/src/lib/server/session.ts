@@ -16,23 +16,25 @@ export type SessionResult =
   | { ok: true }
   | { ok: false; status: number; body: z.infer<typeof errorSchema> }
 
+const UNAVAILABLE = { error: { code: "upstream_error", message: "Relay API is unavailable. Try again shortly." } }
+
 export async function exchangeForSession(path: "/auth/login" | "/auth/signup", body: unknown): Promise<SessionResult> {
-  const response = await fetch(`${API_URL}/api/v1${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}/api/v1${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+  } catch {
+    // Connection refused or DNS failure: the API is down, which the form can say plainly.
+    return { ok: false, status: 502, body: UNAVAILABLE }
+  }
   const json: unknown = await response.json().catch(() => null)
   if (!response.ok) {
     const parsed = errorSchema.safeParse(json)
-    return {
-      ok: false,
-      status: response.status,
-      body: parsed.success
-        ? parsed.data
-        : { error: { code: "upstream_error", message: "Relay API is unavailable. Try again shortly." } },
-    }
+    return { ok: false, status: response.status, body: parsed.success ? parsed.data : UNAVAILABLE }
   }
   const token = tokenSchema.parse(json)
   const store = await cookies()

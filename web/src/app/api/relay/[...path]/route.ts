@@ -7,14 +7,19 @@ export const dynamic = "force-dynamic"
 const FORWARDED_REQUEST_HEADERS = ["content-type", "idempotency-key", "accept", "last-event-id"]
 const FORWARDED_RESPONSE_HEADERS = ["content-type", "cache-control", "idempotent-replayed", "x-request-id"]
 
+function errorResponse(status: number, code: string, message: string) {
+  return Response.json({ error: { code, message } }, { status })
+}
+
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params
+  // fetch() normalises "." and ".." away, which would let a request escape /api/v1.
+  if (path.some((segment) => segment === "." || segment === "..")) {
+    return errorResponse(400, "invalid_path", "Path segments may not be . or ..")
+  }
   const token = await readSessionToken()
   if (!token) {
-    return Response.json(
-      { error: { code: "unauthenticated", message: "Your session has ended. Sign in again." } },
-      { status: 401 },
-    )
+    return errorResponse(401, "unauthenticated", "Your session has ended. Sign in again.")
   }
 
   const headers = new Headers({ authorization: `Bearer ${token}` })
@@ -25,13 +30,15 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const target = `${API_URL}/api/v1/${path.map(encodeURIComponent).join("/")}${request.nextUrl.search}`
   const hasBody = request.method !== "GET" && request.method !== "HEAD"
-  const upstream = await fetch(target, {
-    method: request.method,
-    headers,
-    body: hasBody ? await request.text() : null,
-    cache: "no-store",
-    signal: request.signal,
-  })
+  const body = hasBody ? await request.text() : null
+  let upstream: Response
+  try {
+    upstream = await fetch(target, { method: request.method, headers, body, cache: "no-store", signal: request.signal })
+  } catch (error) {
+    // A browser that went away does not need an answer; anything else means the API is down.
+    if (request.signal.aborted) throw error
+    return errorResponse(502, "api_unreachable", "The Relay API is not reachable right now. Try again shortly.")
+  }
 
   const responseHeaders = new Headers()
   for (const name of FORWARDED_RESPONSE_HEADERS) {
