@@ -83,7 +83,7 @@ typecheck: ## mypy --strict + tsc --noEmit
 build: ## Production build of the console
 	cd web && pnpm build
 
-check: lint typecheck test build ## Everything CI runs
+check: lint typecheck test build ## Lint, typecheck, every test suite and the console build
 
 up: ## Full stack in Docker (Postgres, API, dispatcher, chaos receiver, console)
 	docker compose up --build -d

@@ -9,14 +9,13 @@
 Your backend publishes an event once. Relay signs it, fans it out to every subscriber, retries with jittered backoff, trips circuit breakers on endpoints that keep failing, and records every attempt.
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.162-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Pydantic v2](https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2B-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)](web/package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](web/tsconfig.json)
 [![mypy strict](https://img.shields.io/badge/mypy-strict-2A6DB2)](backend/pyproject.toml)
 [![Standard Webhooks](https://img.shields.io/badge/spec-Standard%20Webhooks-111111)](https://www.standardwebhooks.com)
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [Why](#why-this-exists) · [Features](#feature-highlights) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Quickstart](#quickstart) · [API](#api-overview) · [Decisions](#engineering-decisions-and-trade-offs)
@@ -364,8 +363,8 @@ erDiagram
 | Console | **Next.js 15** App Router, **TypeScript strict**, **shadcn/ui**, Tailwind v4 | Server-side proxy route handlers, middleware session gate |
 | Data and charts | **TanStack Query**, **Recharts**, zod | Every API response is parsed with a zod schema |
 | Tests | **pytest**, pytest-asyncio, **testcontainers**, Vitest | Real Postgres for integration tests |
-| Quality | ruff, **mypy --strict**, ESLint, `tsc --noEmit` | Enforced in CI |
-| Ops | Docker Compose, GitHub Actions | Postgres, migrate, API, dispatcher, chaos, console |
+| Quality | ruff, **mypy --strict**, ESLint, `tsc --noEmit` | `make check` runs all of them plus the tests and the console build |
+| Ops | Docker Compose | Postgres, migrate, API, dispatcher, chaos, console |
 
 ## Engineering decisions and trade-offs
 
@@ -448,15 +447,14 @@ relay-webhooks/
 │       └── lib/                   # zod API schemas, query hooks, SSE client, formatting
 ├── docs/screenshots/
 ├── docker-compose.yml
-├── Makefile
-└── .github/workflows/ci.yml
+└── Makefile
 ```
 
 ## Quickstart
 
 ### Local, without Docker
 
-Requires Python 3.12+, Node 20+, pnpm 9 and a PostgreSQL 16+ server binary (Homebrew `postgresql@17` is detected automatically).
+Requires Python 3.12+, Node 22, pnpm 9 and a PostgreSQL 16+ server binary (Homebrew `postgresql@17` is detected automatically).
 
 ```bash
 make install    # backend/.venv + pnpm install
@@ -563,7 +561,7 @@ The backend has 74 test functions, and the integration tests run against a real 
 | API and auth | Signup, login and `/me` work. Tenants are isolated. Role and API-key scopes are enforced. Expired keys stop working. Login is throttled. |
 | Live | `NOTIFY` reaches only matching subscribers and only on commit. SSE works over real HTTP. |
 
-Unit tests cover the Standard Webhooks implementation (including multi-signature and timestamp tolerance), the retry schedule, breaker transitions, GCRA pacing, the SSRF resolver, the chaos receiver and settings guards. CI runs everything against a `postgres:16-alpine` service container, then builds the Docker images.
+Unit tests cover the Standard Webhooks implementation (including multi-signature and timestamp tolerance), the retry schedule, breaker transitions, GCRA pacing, the SSRF resolver, the chaos receiver and settings guards.
 
 ## API overview
 

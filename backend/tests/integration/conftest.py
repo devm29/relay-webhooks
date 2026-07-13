@@ -2,7 +2,7 @@
 
 Tests run against a real PostgreSQL. By default a disposable ``postgres:16-alpine``
 container is started with testcontainers; set ``RELAY_TEST_DATABASE_URL`` to point at an
-existing database instead (CI services, or a local server when Docker is unavailable).
+existing database instead, such as the ``make db`` server when Docker is unavailable.
 The schema is rebuilt from the Alembic migrations once per session.
 """
 
