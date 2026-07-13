@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "relay"
+version = "0.1.0"
+description = "Multi-tenant outbound webhook delivery on Postgres"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "httpx>=0.28",
+    "jsonschema>=4.23",
+    "sse-starlette>=2.1",
+    "pyjwt>=2.10",
+    "argon2-cffi>=23.1",
+    "structlog>=24.4",
+    "email-validator>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "testcontainers[postgres]>=4.8",
+    "mypy>=1.13",
+    "ruff>=0.8",
+    "types-jsonschema",
+]
+
+[project.scripts]
+relay-api = "relay.api.__main__:main"
+relay-dispatcher = "relay.dispatcher.__main__:main"
+relay-chaos = "relay.chaos.__main__:main"
+relay-seed = "relay.seed:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/relay"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+markers = ["integration: needs a Postgres database"]
+filterwarnings = ["ignore::DeprecationWarning:testcontainers.*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "ASYNC", "RUF", "PL", "PT", "TC", "S"]
+ignore = [
+    "PLR0913", "PLR0917", "PLR2004", "PLR0911", "S101", "TC001", "TC002", "TC003", "ASYNC109",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PLR", "PT018", "PLC0415"]
+"src/relay/seed.py" = ["S311", "S105"]
+"src/relay/chaos/**" = ["S311"]
+"src/relay/dispatcher/processor.py" = ["S311"]
+"src/relay/domain/retry.py" = ["S311"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["testcontainers.*", "asyncpg.*", "sse_starlette.*"]
+ignore_missing_imports = true

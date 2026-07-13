@@ -1,0 +1,44 @@
+# local state
+.data/
+.env
+.env.local
+*.log
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# node
+node_modules/
+web/.next/
+web/out/
+*.tsbuildinfo
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
+
+# environment files (the example stays tracked)
+.env.*
+!.env.example
+
+# local tooling and generated output
+project_venv/
+coverage/
+htmlcov/
+.coverage
+tmp/
+logs/
+web/test-results/
+web/playwright-report/
+
+# repository automation is not part of this project
+.github/
