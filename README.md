@@ -107,6 +107,10 @@ A bundled **chaos receiver** returns 500s, timeouts, slow responses, `Retry-Afte
 
 ![Members and roles](docs/screenshots/members.png)
 
+**On a phone.** The sidebar collapses into a sheet and the KPI cards stack, so the console stays usable at 390 px.
+
+<img src="docs/screenshots/overview-mobile.png" alt="Overview on a 390 px wide phone screen with stacked KPI cards" width="320" />
+
 ## Architecture
 
 The backend ships as one Python package with three entrypoints, `relay-api`, `relay-dispatcher` and `relay-chaos`, plus `relay-seed` for demo data. Postgres is the only stateful component. It serves as the system of record, the work queue and the pub/sub bus.
@@ -477,6 +481,8 @@ make down
 
 In compose the chaos receiver is its own service at `http://chaos:9000`, and the console sets `RELAY_SECURE_COOKIES=false` so sign-in works over plain http.
 
+Then open **http://localhost:3108** and sign in with the same demo account. The seed step logs a `seed.done` line with a newly minted API key (`rk_...`); export it as `RELAY_API_KEY`, and take `APP_ID` from the console URL (`/apps/app_...`) for the request below.
+
 ### Publish your first event
 
 ```bash
@@ -485,6 +491,43 @@ curl -X POST http://localhost:8108/api/v1/apps/$APP_ID/messages \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: order-1042-shipped" \
   -d '{"event_type": "order.shipped", "payload": {"order_id": "ord_1042", "carrier": "ups", "tracking_number": "1Z999"}}'
+```
+
+The message is stored together with one delivery per subscribed endpoint before the response goes out (captured from the seeded Compose stack):
+
+```http
+HTTP/1.1 202 Accepted
+
+{
+  "id": "msg_01m6xnjyfzxe5rfgkg8xwbajhp",
+  "app_id": "app_01m6xnjpt802swx5mvaf2efr01",
+  "event_type": "order.shipped",
+  "event_id": null,
+  "payload": { "carrier": "ups", "order_id": "ord_1042", "tracking_number": "1Z999" },
+  "created_at": "2026-11-08T13:29:25.759893Z",
+  "fanout": 2,
+  "idempotent_replay": false
+}
+```
+
+Sending the same request again with the same `Idempotency-Key` returns the original message instead of a duplicate, with `200 OK`, the header `idempotent-replayed: true` and `"idempotent_replay": true`.
+
+A few hundred milliseconds later `GET /api/v1/apps/$APP_ID/messages/<id>` shows both deliveries done (trimmed):
+
+```json
+"deliveries": [
+  { "id": "dlv_01m6xnjyg39n4en3eb13x4d1ns", "status": "succeeded", "attempt_count": 1, "last_status_code": 200,
+    "endpoint_url": "http://chaos:9000/hooks/analytics?latency_ms=80&jitter_ms=120&fail_rate=0.3&fail_status=503&retry_after=20" },
+  { "id": "dlv_01m6xnjyg3j6h3ah2cp0jgkfrf", "status": "succeeded", "attempt_count": 1, "last_status_code": 200,
+    "endpoint_url": "http://chaos:9000/hooks/fulfillment?latency_ms=260&jitter_ms=420&timeout_rate=0.02" }
+]
+```
+
+and the chaos receiver's `GET /inbox` confirms that it checked each signature:
+
+```json
+{ "receiver": "fulfillment", "webhook_id": "msg_01m6xnjyfzxe5rfgkg8xwbajhp", "event_type": "order.shipped",
+  "signature": "valid", "responded": 200, "latency_ms": 263 }
 ```
 
 ### Verify on the receiving side
