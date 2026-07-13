@@ -1,0 +1,27 @@
+# local state
+.data/
+.env
+.env.local
+*.log
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# node
+node_modules/
+web/.next/
+web/out/
+*.tsbuildinfo
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
