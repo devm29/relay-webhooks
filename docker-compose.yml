@@ -1,0 +1,85 @@
+name: relay
+
+x-backend: &backend
+  build: ./backend
+  environment: &backend-env
+    RELAY_DATABASE_URL: postgresql+asyncpg://relay:relay@postgres:5432/relay
+    RELAY_JWT_SECRET: ${RELAY_JWT_SECRET:-compose-dev-jwt-secret-change-me-please}
+    RELAY_API_KEY_PEPPER: ${RELAY_API_KEY_PEPPER:-compose-dev-pepper-change-me}
+    RELAY_API_HOST: 0.0.0.0
+    RELAY_CORS_ORIGINS: '["http://localhost:3108"]'
+    RELAY_LOG_JSON: "true"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: relay
+      POSTGRES_DB: relay
+    ports: ["5508:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relay"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      RELAY_DATABASE_URL: postgresql+asyncpg://relay:relay@postgres:5432/relay
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    command: ["relay-api"]
+    ports: ["8108:8108"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8108/healthz')"]
+      interval: 5s
+      retries: 20
+
+  dispatcher:
+    <<: *backend
+    command: ["relay-dispatcher"]
+    environment:
+      <<: *backend-env
+      RELAY_DISPATCHER_WORKERS: "32"
+
+  chaos:
+    build: ./backend
+    command: ["relay-chaos"]
+    environment:
+      CHAOS_HOST: 0.0.0.0
+      CHAOS_PORT: "9000"
+      CHAOS_VERIFY_SECRET: whsec_cmVsYXktZGVtby1zaWduaW5nLXNlY3JldC0wMQ==
+
+  seed:
+    <<: *backend
+    command: ["relay-seed", "--chaos-url", "http://chaos:9000"]
+    profiles: ["seed"]
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_DEMO_MODE: "true"
+    environment:
+      RELAY_API_URL: http://api:8108
+      RELAY_SECURE_COOKIES: "false"
+    ports: ["3108:3108"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
